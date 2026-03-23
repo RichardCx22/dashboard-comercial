@@ -8,9 +8,8 @@ st.set_page_config(page_title="Dashboard Comercial PRO", layout="wide")
 # ================= CSS =================
 st.markdown("""
 <style>
-body {
-    background: linear-gradient(135deg, #0F172A, #020617);
-    color: white;
+h2, h4 {
+    text-align: center;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -99,21 +98,43 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ================= KPIs =================
-col1, col2 = st.columns(2)
-col3, col4 = st.columns(2)
-col5, col6 = st.columns(2)
+col1, col2, col3 = st.columns(3)
+col4, col5, col6 = st.columns(3)
 
-col1.metric("💰 Meta", f"R$ {meta_total:,.0f}")
-col2.metric("📈 Realizado", f"R$ {realizado_total:,.0f}")
+# LINHA 1
+col1.markdown(f"""
+<h4>💰 Meta</h4>
+<h2>R$ {meta_total:,.0f}</h2>
+""", unsafe_allow_html=True)
 
-cor = "green" if atingimento >= 1 else "red"
-col3.markdown(f"<h2 style='color:{cor}; text-align:center;'>{atingimento:.2%}</h2>", unsafe_allow_html=True)
+col2.markdown(f"""
+<h4>📈 Realizado</h4>
+<h2>R$ {realizado_total:,.0f}</h2>
+""", unsafe_allow_html=True)
 
-col4.metric("📊 Crescimento", f"{crescimento_medio:.2f}%")
+cor = "red" if atingimento < 1 else "green"
+col3.markdown(f"""
+<h4>🎯 Atingimento</h4>
+<h2 style='color:{cor};'>{atingimento:.2%}</h2>
+""", unsafe_allow_html=True)
 
-col5.markdown(f"<h2 style='color:#38BDF8; text-align:center;'>🚚 {caminhao_total}</h2>", unsafe_allow_html=True)
+# LINHA 2
+col4.markdown(f"""
+<h4>📊 Crescimento</h4>
+<h2>{crescimento_medio:.2f}%</h2>
+""", unsafe_allow_html=True)
 
-col6.metric("Status", "Meta Batida" if atingimento >= 1 else "Abaixo da Meta")
+col5.markdown(f"""
+<h4>🚚 Caminhão</h4>
+<h2 style='color:#38BDF8;'>{caminhao_total}</h2>
+""", unsafe_allow_html=True)
+
+status_text = "🟢 Meta Batida" if atingimento >= 1 else "🔴 Abaixo da Meta"
+
+col6.markdown(f"""
+<h4>Status</h4>
+<h2>{status_text}</h2>
+""", unsafe_allow_html=True)
 
 # ================= ALERTA =================
 if atingimento < 0.9:
