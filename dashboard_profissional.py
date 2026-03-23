@@ -17,8 +17,8 @@ body {
 
 # ================= LOGIN =================
 usuarios = {
-    "admin": "empresa2026",
-    "richard": "pro123"
+    "gerente": "havan2026",
+    "funcionario": "havan2026"
 }
 
 def login():
