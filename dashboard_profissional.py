@@ -74,13 +74,9 @@ st.sidebar.header("📅 Filtros")
 
 data_inicio = st.sidebar.date_input("Data inicial", df["Data"].min())
 data_fim = st.sidebar.date_input("Data final", df["Data"].max())
-loja = st.sidebar.selectbox("🏢 Loja", ["Todas"] + list(df["Loja"].unique()))
 
 df_filtrado = df[(df["Data"] >= pd.to_datetime(data_inicio)) & 
                  (df["Data"] <= pd.to_datetime(data_fim))]
-
-if loja != "Todas":
-    df_filtrado = df_filtrado[df_filtrado["Loja"] == loja]
 
 # ================= KPIs =================
 meta_total = df_filtrado["Meta"].sum()
@@ -177,23 +173,6 @@ st.plotly_chart(fig1, use_container_width=True)
 df_filtrado["MediaMovel"] = df_filtrado["Realizado"].rolling(3).mean()
 fig2 = px.line(df_filtrado, x="Data", y=["Realizado", "MediaMovel"], template="plotly_dark")
 st.plotly_chart(fig2, use_container_width=True)
-
-# ================= VENDEDORES =================
-st.subheader("👤 Ranking de Vendedores")
-
-ranking_vendedores = df_filtrado.groupby("Vendedor")["Realizado"].sum().reset_index()
-ranking_vendedores = ranking_vendedores.sort_values("Realizado", ascending=False)
-
-fig_v = px.bar(ranking_vendedores, x="Vendedor", y="Realizado", text_auto=True, template="plotly_dark")
-st.plotly_chart(fig_v, use_container_width=True)
-
-# ================= LOJAS =================
-st.subheader("🏢 Performance por Loja")
-
-loja_perf = df_filtrado.groupby("Loja")["Realizado"].sum().reset_index()
-
-fig_l = px.bar(loja_perf, x="Loja", y="Realizado", text_auto=True, template="plotly_dark")
-st.plotly_chart(fig_l, use_container_width=True)
 
 # ================= RODAPÉ =================
 st.markdown("""
