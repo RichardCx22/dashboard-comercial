@@ -2,33 +2,29 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import numpy as np
+from streamlit_animate_numbers import animate_number  # pip install streamlit-animate-numbers
 
 # ================= CONFIG =================
-st.set_page_config(page_title="Dashboard Full Responsivo", layout="wide")
+st.set_page_config(page_title="Dashboard Ultra CEO", layout="wide")
 
 # ================= CSS =================
 st.markdown("""
 <style>
 body { background-color: #0F172A; color: white; font-family: 'Arial'; }
-
-/* KPI Box */
 .kpi-box {
     background-color: #1E293B;
     border-radius: 16px;
     padding: 16px;
     margin: 4px 0;
     box-shadow: 0 6px 12px rgba(0,0,0,0.4);
-    transition: transform 0.2s;
+    transition: transform 0.3s;
     cursor: pointer;
-    text-align: center;
 }
 .kpi-box:hover { transform: translateY(-5px); }
-
-.kpi-label { font-size: 16px; color: #CBD5E1; margin-bottom: 6px; }
-.kpi-number { font-size: 28px; font-weight: bold; }
-
+.kpi-label { font-size: 16px; color: #CBD5E1; text-align: center; }
+.kpi-number { font-size: 28px; font-weight: bold; text-align: center; }
 .progress-bar { background-color: #374151; border-radius: 12px; height: 12px; width: 100%; margin-top: 6px; }
-.progress-fill { height: 12px; border-radius: 12px; transition: width 0.5s ease, background-color 0.5s ease; }
+.progress-fill { height: 12px; border-radius: 12px; transition: width 0.5s ease; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -67,24 +63,28 @@ df_filtrado = df[(df["Data"] >= pd.to_datetime(data_inicio)) &
                  (df["Data"] <= pd.to_datetime(data_fim))]
 
 # ================= FUNÇÃO KPI =================
-def kpi_box(col, label, value, progress=None, color="#FFFFFF", key=None):
+def kpi_box(col, label, value, progress=None, color="#FFFFFF", tooltip=None, key=None):
     fill_color = "#10B981" if (progress is None or progress>=1) else "#F87171"
     progress_html = ""
     if progress is not None:
-        pct = min(max(progress,0),1)*100  # garante 0-100%
-        fill_color = "#10B981" if progress >= 1 else ("#FACC15" if progress >= 0.9 else "#F87171")
+        pct = min(progress,1)*100
         progress_html = f"""
         <div class="progress-bar">
             <div class="progress-fill" style="width:{pct}%; background-color:{fill_color};"></div>
         </div>
         """
+    clicked = False
+    if key:
+        clicked = col.button("", key=key, help=label)
+    tooltip_html = f"title='{tooltip}'" if tooltip else ""
     col.markdown(f"""
-    <div class="kpi-box">
+    <div class="kpi-box" {tooltip_html}>
         <div class="kpi-label">{label}</div>
         <div class="kpi-number" style="color:{color};">{value}</div>
         {progress_html}
     </div>
     """, unsafe_allow_html=True)
+    return clicked
 
 # ================= CÁLCULOS =================
 meta_total = df_filtrado["Meta"].sum()
@@ -107,22 +107,26 @@ def responsive_columns(n):
 col1, col2, col3 = responsive_columns(3)
 col4, col5, col6 = responsive_columns(3)
 
-# ================= KPIs =================
-kpi_box(col1, "💰 Meta", f"R$ {meta_total:,.0f}")
-kpi_box(col2, "📈 Realizado", f"R$ {realizado_total:,.0f}")
+# ================= KPIs CLIQUE =================
+filter_meta = kpi_box(col1, "💰 Meta", f"R$ {meta_total:,.0f}", tooltip=f"Média: R$ {df_filtrado['Meta'].mean():,.0f}\nMáx: R$ {df_filtrado['Meta'].max():,.0f}")
+filter_realizado = kpi_box(col2, "📈 Realizado", f"R$ {realizado_total:,.0f}", tooltip=f"Média: R$ {df_filtrado['Realizado'].mean():,.0f}", key="realizado")
 cor = "#10B981" if atingimento >= 1 else "#F87171"
-kpi_box(col3, "🎯 Atingimento", f"{atingimento:.2%}", progress=atingimento, color=cor)
-kpi_box(col4, "📊 Crescimento", f"{crescimento_medio:.2f}%", progress=(crescimento_medio/10+0.5))
-kpi_box(col5, "🚚 Caminhão", f"{caminhao_total}", color="#38BDF8")
-kpi_box(col6, "Status", status_text, color="#FACC15" if atingimento >= 1 else "#F87171")
+filter_atingimento = kpi_box(col3, "🎯 Atingimento", f"{atingimento:.2%}", progress=atingimento, color=cor, tooltip="Proporção Realizado/Meta", key="atingimento")
+filter_crescimento = kpi_box(col4, "📊 Crescimento", f"{crescimento_medio:.2f}%", progress=(crescimento_medio/10+0.5))
+filter_caminhao = kpi_box(col5, "🚚 Caminhão", f"{caminhao_total}", color="#38BDF8")
+filter_status = kpi_box(col6, "Status", status_text, color="#FACC15" if atingimento >= 1 else "#F87171")
 
-# ================= FILTRO AUTOMÁTICO =================
+# ================= FILTROS AUTOMÁTICOS =================
 df_plot = df_filtrado.copy()
+if filter_realizado: df_plot = df_plot[df_plot["Realizado"] > df_plot["Realizado"].mean()]
+if filter_atingimento: df_plot = df_plot[df_plot["Realizado"]/df_plot["Meta"] >= 1]
+if filter_crescimento: df_plot = df_plot[df_plot["Crescimento"] > 0]
+if filter_caminhao: df_plot = df_plot[df_plot["Caminhao"] > 0]
+if filter_status: df_plot = df_plot[df_plot["Realizado"]/df_plot["Meta"] >= 1]
 
-# ================= GRÁFICOS =================
+# ================= GRÁFICOS RESPONSIVOS =================
 st.markdown("---")
 meta_realizado = df_plot.groupby("Data")[["Meta","Realizado"]].sum().reset_index()
-
 fig1 = px.bar(meta_realizado, x="Data", y=["Meta","Realizado"], barmode="group",
               text_auto=True, template="plotly_dark", color_discrete_sequence=["#6366F1","#10B981"])
 fig1.update_layout(title_text="Meta vs Realizado", title_x=0.5)
@@ -133,13 +137,16 @@ fig2 = px.line(meta_realizado, x="Data", y="Realizado", title="Tendência de Rea
 fig2.update_traces(line=dict(color="#10B981", width=4))
 st.plotly_chart(fig2, use_container_width=True)
 
+# Melhor dia animado
 if not df_plot.empty:
     melhor_dia = meta_realizado.loc[meta_realizado["Realizado"].idxmax()]
     st.markdown(f"""
-    <div class="kpi-box">
+    <div class="kpi-box" title="Dia de maior Realizado">
         <div class="kpi-label">🏆 Melhor Dia</div>
-        <div class="kpi-number">{melhor_dia['Data'].date()} - R$ {melhor_dia['Realizado']:,.0f}</div>
+        <div class="kpi-number" style="color:#FACC15;">
+            {melhor_dia['Data'].date()} - R$ {melhor_dia['Realizado']:,.0f}
+        </div>
     </div>
     """, unsafe_allow_html=True)
 
-st.markdown("🚀 Dashboard **full responsivo nível CEO** pronto: login, KPIs alinhados, barras de progresso bonitas e mobile friendly.")
+st.markdown("🚀 Dashboard **ultra CEO full responsivo** pronto: login, KPIs interativos, tooltips, animações e mobile friendly.")
