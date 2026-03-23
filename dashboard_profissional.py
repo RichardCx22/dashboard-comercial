@@ -1,35 +1,28 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+import random
 
 st.set_page_config(page_title="Dashboard Comercial PRO", layout="wide")
 
-# ================= CSS (VISUAL + MOBILE) =================
+# ================= CSS =================
 st.markdown("""
 <style>
-body { background-color: #0F172A; color: white; }
-
-html, body, [class*="css"]  {
-    font-size: 16px;
-}
-
-@media (max-width: 768px) {
-    html, body, [class*="css"]  {
-        font-size: 20px;
-    }
+body {
+    background: linear-gradient(135deg, #0F172A, #020617);
+    color: white;
 }
 </style>
 """, unsafe_allow_html=True)
 
 # ================= LOGIN =================
 usuarios = {
-    "admin": "1234",
+    "admin": "empresa2026",
     "richard": "pro123"
 }
 
 def login():
     st.title("🔐 Login do Sistema")
-
     usuario = st.text_input("Usuário")
     senha = st.text_input("Senha", type="password")
 
@@ -37,7 +30,6 @@ def login():
         if usuario in usuarios and usuarios[usuario] == senha:
             st.session_state["logado"] = True
             st.session_state["usuario"] = usuario
-            st.success("Login realizado com sucesso!")
             st.rerun()
         else:
             st.error("Usuário ou senha inválidos")
@@ -49,7 +41,6 @@ if not st.session_state["logado"]:
     login()
     st.stop()
 
-# ================= SIDEBAR =================
 st.sidebar.success(f"Logado como: {st.session_state['usuario']}")
 
 # ================= DADOS =================
@@ -72,14 +63,25 @@ df = pd.DataFrame(dados, columns=colunas)
 df["Data"] = pd.to_datetime(df["Data"])
 df = df.sort_values("Data")
 
+# ================= SIMULAÇÕES =================
+vendedores = ["João", "Maria", "Carlos", "Ana"]
+lojas = ["Loja Centro", "Loja Norte", "Loja Sul"]
+
+df["Vendedor"] = [random.choice(vendedores) for _ in range(len(df))]
+df["Loja"] = [random.choice(lojas) for _ in range(len(df))]
+
 # ================= FILTROS =================
 st.sidebar.header("📅 Filtros")
 
 data_inicio = st.sidebar.date_input("Data inicial", df["Data"].min())
 data_fim = st.sidebar.date_input("Data final", df["Data"].max())
+loja = st.sidebar.selectbox("🏢 Loja", ["Todas"] + list(df["Loja"].unique()))
 
 df_filtrado = df[(df["Data"] >= pd.to_datetime(data_inicio)) & 
                  (df["Data"] <= pd.to_datetime(data_fim))]
+
+if loja != "Todas":
+    df_filtrado = df_filtrado[df_filtrado["Loja"] == loja]
 
 # ================= KPIs =================
 meta_total = df_filtrado["Meta"].sum()
@@ -88,67 +90,94 @@ atingimento = realizado_total / meta_total if meta_total > 0 else 0
 crescimento_medio = df_filtrado["Crescimento"].mean()
 caminhao_total = df_filtrado["Caminhao"].sum()
 
-# Melhor dia
 melhor_dia = df_filtrado.loc[df_filtrado["Realizado"].idxmax()]
 
-status = "🟢 Meta Batida" if atingimento >= 1 else "🔴 Abaixo da Meta"
+# ================= HEADER =================
+st.markdown("""
+<h1 style='text-align: center;'>🚀 Painel de Performance Comercial</h1>
+<p style='text-align: center; color: gray;'>Acompanhamento estratégico em tempo real</p>
+""", unsafe_allow_html=True)
 
-# ================= TÍTULO =================
-st.title("🚀 Dashboard Comercial PRO")
-
-# ================= KPIs RESPONSIVOS =================
+# ================= KPIs =================
 col1, col2 = st.columns(2)
 col3, col4 = st.columns(2)
 col5, col6 = st.columns(2)
 
 col1.metric("💰 Meta", f"R$ {meta_total:,.0f}")
 col2.metric("📈 Realizado", f"R$ {realizado_total:,.0f}")
-col3.metric("🎯 Atingimento", f"{atingimento:.2%}")
+
+cor = "green" if atingimento >= 1 else "red"
+col3.markdown(f"<h2 style='color:{cor}; text-align:center;'>{atingimento:.2%}</h2>", unsafe_allow_html=True)
+
 col4.metric("📊 Crescimento", f"{crescimento_medio:.2f}%")
-col5.metric("🚚 Caminhão", caminhao_total)
-col6.metric("Status", status)
+
+col5.markdown(f"<h2 style='color:#38BDF8; text-align:center;'>🚚 {caminhao_total}</h2>", unsafe_allow_html=True)
+
+col6.metric("Status", "Meta Batida" if atingimento >= 1 else "Abaixo da Meta")
+
+# ================= ALERTA =================
+if atingimento < 0.9:
+    st.error("⚠️ Desempenho abaixo do esperado!")
+elif atingimento < 1:
+    st.warning("⚠️ Próximo da meta!")
+else:
+    st.success("✅ Meta atingida!")
 
 # ================= PROGRESSO =================
-st.subheader("🎯 Progresso da Meta")
 st.progress(min(atingimento, 1.0))
 
 # ================= MELHOR DIA =================
-st.subheader("🏆 Melhor Dia")
+st.markdown(f"""
+<div style='background-color:#1E293B; padding:20px; border-radius:10px;'>
+<h3>🏆 Melhor Dia</h3>
+<p>{melhor_dia['Data'].date()}</p>
+<p>R$ {melhor_dia['Realizado']:,.2f}</p>
+</div>
+""", unsafe_allow_html=True)
 
-st.info(f"""
-📅 Data: {melhor_dia['Data'].date()}  
-💰 Venda: R$ {melhor_dia['Realizado']:,.2f}
-""")
+# ================= PREVISÃO =================
+dias = len(df_filtrado)
+meta_diaria = meta_total / dias if dias > 0 else 0
+media_realizado = df_filtrado["Realizado"].mean()
+previsao = media_realizado * 30
+projecao = previsao / meta_total if meta_total > 0 else 0
+
+st.subheader("🔮 Inteligência Comercial")
+
+c1, c2, c3 = st.columns(3)
+c1.metric("Meta Diária", f"R$ {meta_diaria:,.0f}")
+c2.metric("Previsão Mês", f"R$ {previsao:,.0f}")
+c3.metric("Projeção Meta", f"{projecao:.2%}")
 
 # ================= GRÁFICOS =================
-st.subheader("📊 Análises")
+fig1 = px.area(df_filtrado, x="Data", y=["Meta", "Realizado"], template="plotly_dark")
+st.plotly_chart(fig1, use_container_width=True)
 
-colA = st.container()
-colB = st.container()
+df_filtrado["MediaMovel"] = df_filtrado["Realizado"].rolling(3).mean()
+fig2 = px.line(df_filtrado, x="Data", y=["Realizado", "MediaMovel"], template="plotly_dark")
+st.plotly_chart(fig2, use_container_width=True)
 
-with colA:
-    st.subheader("📈 Meta vs Realizado")
-    fig1 = px.area(df_filtrado, x="Data", y=["Meta", "Realizado"])
-    st.plotly_chart(fig1, use_container_width=True)
+# ================= VENDEDORES =================
+st.subheader("👤 Ranking de Vendedores")
 
-with colB:
-    st.subheader("📉 Crescimento")
-    fig2 = px.line(df_filtrado, x="Data", y="Crescimento", markers=True)
-    st.plotly_chart(fig2, use_container_width=True)
+ranking_vendedores = df_filtrado.groupby("Vendedor")["Realizado"].sum().reset_index()
+ranking_vendedores = ranking_vendedores.sort_values("Realizado", ascending=False)
 
-# ================= PRODUTOS =================
-st.subheader("📦 Produtos / Serviços")
+fig_v = px.bar(ranking_vendedores, x="Vendedor", y="Realizado", text_auto=True, template="plotly_dark")
+st.plotly_chart(fig_v, use_container_width=True)
 
-produtos = df_filtrado[["Protecao","Cartao","VendaLista","Garantia","Multi"]].sum().reset_index()
-produtos.columns = ["Produto", "Valor"]
+# ================= LOJAS =================
+st.subheader("🏢 Performance por Loja")
 
-fig3 = px.bar(produtos, x="Produto", y="Valor", text_auto=True)
-st.plotly_chart(fig3, use_container_width=True)
+loja_perf = df_filtrado.groupby("Loja")["Realizado"].sum().reset_index()
 
-# ================= RANKING =================
-st.subheader("🏆 Ranking de Performance")
+fig_l = px.bar(loja_perf, x="Loja", y="Realizado", text_auto=True, template="plotly_dark")
+st.plotly_chart(fig_l, use_container_width=True)
 
-df_filtrado["Atingimento"] = df_filtrado["Realizado"] / df_filtrado["Meta"]
-ranking = df_filtrado.sort_values("Realizado", ascending=False)
-
-st.dataframe(ranking[["Data","Meta","Realizado","Atingimento"]])
+# ================= RODAPÉ =================
+st.markdown("""
+<hr>
+<p style='text-align:center; font-size:12px; color:gray;'>
+Desenvolvido por Richard • Dashboard Comercial PRO
+</p>
+""", unsafe_allow_html=True)
